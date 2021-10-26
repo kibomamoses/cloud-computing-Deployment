@@ -20,4 +20,4 @@
   
   ## Wordpress with Elastic Beanstalk Deployment
   
-  ![cloud-computing](https://github.com/kibomamoses/cloud-computing/blob/master/Wordpress%20with%20Elastic%20Beanstalk/w1.pngg)
+  ![cloud-computing](https://github.com/kibomamoses/cloud-computing/blob/master/Wordpress%20with%20Elastic%20Beanstalk/w1.png)
