@@ -1,0 +1,508 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Elastic Beans Talk",
+  "Parameters": {
+    "ApplicationName": {
+        "Description": "Name of application",
+        "Type": "String",
+        "Default": "MSR",
+        "MinLength": "1",
+        "MaxLength": "255",
+        "AllowedPattern": "[\\x20-\\x7E]*",
+        "ConstraintDescription": "Must contain only ASCII characters."
+    },
+    "Ec2AMIId": {
+      "Type": "String",
+      "Default": "ami-1853ac65",
+      "Description": "AMI ID of Amazon linux image for respective region",
+      "MinLength": "1",
+      "MaxLength": "255",
+      "AllowedPattern": "[\\x20-\\x7E]*",
+      "ConstraintDescription": "Must contain only ASCII characters."
+    },
+   
+    "VpcId": {
+      "Type": "AWS::EC2::VPC::Id",
+      "Description": "VPC",
+      "MinLength": "1",
+      "MaxLength": "255",
+      "AllowedPattern": "[\\x20-\\x7E]*",
+      "ConstraintDescription": "Must contain only ASCII characters."
+    },
+    "PrivateSubnetAvailabilityZoneA": {
+      "Type": "AWS::EC2::Subnet::Id",
+      "Description": "Private Subnet AvailabilityZone 1 - us-east-1a",
+      "MinLength": "1",
+      "MaxLength": "255",
+      "ConstraintDescription": "Must be a valid Private Subnet."
+    },
+    "PrivateSubnetAvailabilityZoneB": {
+      "Type": "AWS::EC2::Subnet::Id",
+      "Description": "Private Subnet AvailabilityZone 2 - us-east-1b",
+      "MinLength": "1",
+      "MaxLength": "255",
+      "ConstraintDescription": "Must be a valid Private Subnet."
+    },
+    "PreferredMaintenanceWindow": {
+      "Type": "String",
+      "Default": "wed:09:30-wed:10:30",
+      "Description": "Preferred Maintenance Window"
+    },
+    "PreferredAvbZone": {
+      "Type": "AWS::EC2::AvailabilityZone::Name",
+      "Description": "Preferred Availability Zone",
+      "ConstraintDescription": "Must be a valid Availability zone."
+    },
+    "S3Bucket": {
+      "Type": "String",
+      "Description": "S3 Bucket with CFT resources",
+      "MinLength": "1",
+      "MaxLength": "255",
+      "AllowedPattern": "[\\x20-\\x7E]*",
+      "ConstraintDescription": "Must contain only ASCII characters."
+    },
+    "AccessKey": {
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "Description": " EC2 Access Key pair"
+    }
+  },
+
+  "Resources": {
+    "WPApp": {
+      "Type": "AWS::ElasticBeanstalk::Application",
+      "Properties": {
+        "ApplicationName": "-STG-UMS",
+        "Description": " UMS micro service eb application",
+        "ApplicationVersions": [
+          {
+            "VersionLabel": "Initial Version",
+            "Description": "Version 1.0"
+          }
+        ]
+      }
+    },
+    "UmsEnv1": {
+      "Type": "AWS::ElasticBeanstalk::Environment",
+      "Properties": {
+        "EnvironmentName": "-STG-UMS-Env1",
+        "ApplicationName": {
+          "Ref": "UmsEbApp"
+        },
+        "Description": "AWS Elastic Beanstalk Environment running Docker Sample Application",
+        "SolutionStackName": "64bit Amazon Linux 2017.09 v2.8.4 running Docker 17.09.1-ce",
+        "Tier": {
+          "Name": "WebServer",
+          "Type": "Standard",
+          "Version": "1.0"
+        },
+        "VersionLabel": "Initial Version",
+        "OptionSettings": [
+          {
+            "Namespace": "aws:autoscaling:launchconfiguration",
+            "OptionName": "InstanceType",
+            "Value": "t2.micro"
+          },
+          {
+            "Namespace": "aws:autoscaling:launchconfiguration",
+            "OptionName": "EC2KeyName",
+            "Value": {
+              "Ref": "AccessKey"
+            }
+          },
+          {
+            "Namespace": "aws:ec2:vpc",
+            "OptionName": "AssociatePublicIpAddress",
+            "Value": "true"
+          },
+          {
+            "Namespace": "aws:ec2:vpc",
+            "OptionName": "VPCId",
+            "Value": {
+              "Ref": "VpcId"
+            }
+          },
+       
+          {
+            "Namespace": "aws:ec2:vpc",
+            "OptionName": "Subnets",
+            "Value": {
+              "Fn::Join": [
+                ",",
+                [
+                  {
+                    "Ref": "PrivateSubnetAvailabilityZoneA"
+                  },
+                  {
+                    "Ref": "PrivateSubnetAvailabilityZoneB"
+                  }
+                ]
+              ]
+            }
+          },
+          {
+            "Namespace": "aws:autoscaling:asg",
+            "OptionName": "MinSize",
+            "Value": "1"
+          },
+          {
+            "Namespace": "aws:autoscaling:asg",
+            "OptionName": "MaxSize",
+            "Value": "2"
+          },
+          {
+            "Namespace": "aws:autoscaling:trigger",
+            "OptionName": "BreachDuration",
+            "Value": "3"
+          },
+          {
+            "Namespace": "aws:autoscaling:trigger",
+            "OptionName": "LowerThreshold",
+            "Value": "20"
+          },
+          {
+            "Namespace": "aws:autoscaling:trigger",
+            "OptionName": "MeasureName",
+            "Value": "CPUUtilization"
+          },
+          {
+            "Namespace": "aws:autoscaling:trigger",
+            "OptionName": "Period",
+            "Value": "3"
+          },
+          {
+            "Namespace": "aws:autoscaling:trigger",
+            "OptionName": "Unit",
+            "Value": "Percent"
+          },
+          {
+            "Namespace": "aws:autoscaling:trigger",
+            "OptionName": "UpperThreshold",
+            "Value": "60"
+          },
+          {
+            "Namespace": "aws:autoscaling:updatepolicy:rollingupdate",
+            "OptionName": "RollingUpdateEnabled",
+            "Value": "false"
+          },
+          {
+            "Namespace": "aws:ec2:vpc",
+            "OptionName": "ELBScheme",
+            "Value": "internal"
+          },
+          {
+            "Namespace": "aws:elb:loadbalancer",
+            "OptionName": "CrossZone",
+            "Value": "true"
+          },
+          {
+            "Namespace": "aws:elasticbeanstalk:application",
+            "OptionName": "Application Healthcheck URL",
+            "Value": "/"
+          },
+          {
+            "Namespace": "aws:elasticbeanstalk:cloudwatch:logs",
+            "OptionName": "RetentionInDays",
+            "Value": "14"
+          }
+        ]
+      }
+    },
+    "lx23801b": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "ImageId": {
+          "Ref": "Ec2AMIId"
+        },
+        "InstanceType": "t2.micro",
+        "KeyName": {
+          "Ref": "AccessKey"
+        },
+       
+        "Monitoring": "false",
+        "NetworkInterfaces": [
+          {
+            "DeleteOnTermination": "true",
+            "Description": "Primary network interface",
+            "DeviceIndex": 0,
+            "SubnetId": {
+              "Ref": "PrivateSubnetAvailabilityZoneA"
+            },
+            "AssociatePublicIpAddress": "true",
+            "GroupSet": [
+              {
+                "Ref": "UmsLoaderSecurityGroup"
+              }
+            ]
+          }
+        ],
+        "BlockDeviceMappings": [
+          {
+            "DeviceName": "/dev/xvda",
+            "Ebs": {
+              "VolumeSize": "20",
+              "VolumeType": "gp2"
+            }
+          },
+          {
+            "DeviceName": "/dev/sdf",
+            "Ebs": {
+              "VolumeSize": "20",
+              "VolumeType": "gp2"
+            }
+          },
+          {
+            "DeviceName": "/dev/sds",
+            "Ebs": {
+              "VolumeSize": "10",
+              "VolumeType": "gp2"
+            }
+          }
+        ],
+
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "#!/bin/bash -v\n",
+                "curl https://wordpress.org/wordpress-4.9.5.tar.gz -o wordpress.tar.gz\n",
+                "wget https://github.com/aws-samples/eb-php-wordpress/releases/download/v1.1/eb-php-wordpress-v1.zip\n",
+                "mv wordpress wordpress-beanstalk\n",
+                "cd wordpress-beanstalk \n",
+                "echo END"
+              ]
+            ]
+          }
+        }
+      }
+    },
+    "UmsLoaderSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": " UMS Loader Security Group",
+        "VpcId": {
+          "Ref": "VpcId"
+        }
+      }
+    },
+    "ingress8": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "UmsLoaderSecurityGroup"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": "22",
+        "ToPort": "22",
+        "CidrIp": "0.0.0.0/0"
+      }
+    },
+    "egress3": {
+      "Type": "AWS::EC2::SecurityGroupEgress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "UmsLoaderSecurityGroup"
+        },
+        "IpProtocol": "-1",
+        "CidrIp": "0.0.0.0/0"
+      }
+    },
+    "Uds": {
+      "Type": "AWS::RDS::DBInstance",
+      "Properties": {
+        "DBInstanceIdentifier": "-STG-UMS-nonprod-mysql",
+        "AllocatedStorage": "20",
+        "AllowMajorVersionUpgrade": "false",
+        "AutoMinorVersionUpgrade": "true",
+        "DBInstanceClass": "db.t2.micro",
+        "Port": "3306",
+        "StorageType": "gp2",
+        "BackupRetentionPeriod": "1",
+        "MasterUsername": "root",
+        "MasterUserPassword": "8760kyV64nVo",
+        "PreferredBackupWindow": "08:30-09:00",
+        "PreferredMaintenanceWindow": {
+          "Ref": "PreferredMaintenanceWindow"
+        },
+        "DBName": "MyDatabase",
+        "Engine": "mysql",
+        "EngineVersion": "5.6.27",
+        "LicenseModel": "general-public-license",
+        "MultiAZ": "true",
+        "DBSubnetGroupName": {
+          "Ref": "dbSubnetGroupUds"
+        },
+        "VPCSecurityGroups": [
+          {
+            "Ref": "vpcSecurityGroupUds"
+          }
+        ]
+      }
+    },
+    "dbSubnetGroupUds": {
+      "Type": "AWS::RDS::DBSubnetGroup",
+      "Properties": {
+        "DBSubnetGroupName": "-ums-stg-rds",
+        "DBSubnetGroupDescription": "RDS DB Subnet Group",
+        "SubnetIds": [
+          {
+            "Ref": "PrivateSubnetAvailabilityZoneA"
+          },
+          {
+            "Ref": "PrivateSubnetAvailabilityZoneB"
+          }
+        ]
+      }
+    },
+    "vpcSecurityGroupUds": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Security group for FE RDS DB",
+        "VpcId": {
+          "Ref": "VpcId"
+        }
+      }
+    },
+    "ingress49": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "vpcSecurityGroupUds"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": "3306",
+        "ToPort": "3306",
+        "CidrIp": "0.0.0.0/0"
+      }
+    },
+    "egress17": {
+      "Type": "AWS::EC2::SecurityGroupEgress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "vpcSecurityGroupUds"
+        },
+        "IpProtocol": "-1",
+        "CidrIp": "0.0.0.0/0"
+      }
+    },
+    "UedisReplicationGroup": {
+      "Type": "AWS::ElastiCache::ReplicationGroup",
+      "Properties": {
+        "ReplicationGroupId": "-stg-ums-redis",
+        "ReplicationGroupDescription": " UMS Redis Replication Group",
+        "NumCacheClusters": "1",
+        "Engine": "redis",
+        "EngineVersion": "3.2.4",
+        "CacheNodeType": "cache.m4.large",
+        "AutoMinorVersionUpgrade": "false",
+        "AutomaticFailoverEnabled": "false",
+        "CacheSubnetGroupName": {
+          "Ref": "UmsCacheSubnetGroup"
+        },
+        "PreferredMaintenanceWindow": {
+          "Ref": "PreferredMaintenanceWindow"
+        },
+        "NotificationTopicArn": {
+          "Ref": "topic"
+        },
+        "SnapshotRetentionLimit": "1",
+        "SnapshotWindow": "08:30-09:30",
+        "SecurityGroupIds": [
+          {
+            "Fn::GetAtt": ["UmsCacheSecurityGroup", "GroupId"]
+          }
+        ]
+      }
+    },
+    "UmsCacheSubnetGroup": {
+      "Type": "AWS::ElastiCache::SubnetGroup",
+      "Properties": {
+        "CacheSubnetGroupName": "-ums-stg-cache",
+        "Description": " UMS cache subnet group",
+        "SubnetIds": [
+          {
+            "Ref": "PrivateSubnetAvailabilityZoneA"
+          },
+          {
+            "Ref": "PrivateSubnetAvailabilityZoneB"
+          }
+        ]
+      }
+    },
+    "UmsCacheSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "cache security group",
+        "VpcId": {
+          "Ref": "VpcId"
+        }
+      }
+    },
+    "ingress44": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "UmsCacheSecurityGroup"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": "80",
+        "ToPort": "80",
+        "CidrIp": "0.0.0.0/0"
+      }
+    },
+    "ingress46": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "UmsCacheSecurityGroup"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": "6379",
+        "ToPort": "6379",
+        "CidrIp": "0.0.0.0/0"
+      }
+    },
+    "ingress47": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "UmsCacheSecurityGroup"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": "443",
+        "ToPort": "443",
+        "CidrIp": "0.0.0.0/0"
+      }
+    },
+    "egress16": {
+      "Type": "AWS::EC2::SecurityGroupEgress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "UmsCacheSecurityGroup"
+        },
+        "IpProtocol": "-1",
+        "CidrIp": "0.0.0.0/0"
+      }
+    },
+    "UmsS3Bucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketName": "sysco-nonprod--ums",
+        "AccessControl": "BucketOwnerFullControl"
+      }
+    }
+  },
+
+  "Outputs": {
+    "loaderinstance": {
+      "Value": {
+        "Ref": "lx23801b"
+      }
+    },
+    "rds": {
+      "Value": {
+        "Ref": "Uds"
+      }
+    }
+  }
+}
